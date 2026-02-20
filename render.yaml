@@ -2,14 +2,15 @@ services:
   - type: web
     name: oliverflix-scraper-api
     env: node
-    # Use puppeteer's required system dependencies
+    # Ensure puppeteer cache is saved within the retained project folder
     buildCommand: npm install && npx puppeteer browsers install chrome
     startCommand: npm start
     envVars:
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/project/src/.puppeteer_cache
       - key: NODE_ENV
         value: production
       - key: TARGET_BASE_URL
         value: https://net22.cc
-      # To prevent Puppeteer from taking up too much memory on free tier
       - key: CHROME_ARGS
         value: "--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-gpu"
