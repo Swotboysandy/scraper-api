@@ -32,11 +32,17 @@ const browserService = {
                 args.push(...process.env.CHROME_ARGS.split(','));
             }
 
-            // Try to resolve path based on Render's typical Chrome installation
-            const executablePath = 
-                process.env.PUPPETEER_EXECUTABLE_PATH || 
-                puppeteer.executablePath() || 
-                '/opt/render/project/src/.puppeteer_cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
+            // Safely resolve executable path
+            let executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+            
+            if (!executablePath) {
+                try {
+                    executablePath = puppeteer.executablePath();
+                } catch (e) {
+                    logger.warn('puppeteer.executablePath() threw an error, falling back to static Render path.');
+                    executablePath = '/opt/render/project/src/.puppeteer_cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
+                }
+            }
 
             const launchOptions = {
                 headless: "new",
