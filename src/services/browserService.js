@@ -1,10 +1,8 @@
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const puppeteer = require('puppeteer');
 const logger = require('../utils/logger');
 const { USER_AGENT } = require('../utils/constants');
 
-// Apply stealth plugin to avoid basic bot detections
-puppeteer.use(StealthPlugin());
+// Stealth plugin removed: using vanilla Puppeteer
 
 let globalBrowser = null;
 let activePages = 0;
