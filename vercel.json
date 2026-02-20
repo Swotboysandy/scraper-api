@@ -16,6 +16,18 @@
             "dest": "/api/home.js"
         },
         {
+            "src": "^/search$",
+            "dest": "/api/search.js"
+        },
+        {
+            "src": "^/details$",
+            "dest": "/api/details.js"
+        },
+        {
+            "src": "^/stream$",
+            "dest": "/api/stream.js"
+        },
+        {
             "src": "^/api/(.*)$",
             "dest": "/api/$1.js"
         }

@@ -4,7 +4,10 @@ module.exports = (req, res) => {
     success: true,
     message: 'Scraper API is running',
     endpoints: {
-      home: '/api/home'
+      home: '/api/home',
+      search: '/api/search?q=QUERY',
+      details: '/api/details?id=ID',
+      stream: '/api/stream?id=ID',
     }
   });
 };
