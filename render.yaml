@@ -11,3 +11,5 @@ services:
         value: production
       - key: TARGET_BASE_URL
         value: https://net22.cc
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: /opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome
