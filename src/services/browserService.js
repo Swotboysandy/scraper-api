@@ -32,15 +32,18 @@ const browserService = {
                 args.push(...process.env.CHROME_ARGS.split(','));
             }
 
+            // Try to resolve path based on Render's typical Chrome installation
+            const executablePath = 
+                process.env.PUPPETEER_EXECUTABLE_PATH || 
+                puppeteer.executablePath() || 
+                '/opt/render/project/src/.puppeteer_cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
+
             const launchOptions = {
                 headless: "new",
                 args: [...new Set(args)], // remove duplicates
                 ignoreHTTPSErrors: true,
+                executablePath: executablePath // Explicitly set it
             };
-
-            if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-                launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-            }
 
             globalBrowser = await puppeteer.launch(launchOptions);
             
