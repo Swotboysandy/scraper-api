@@ -2,7 +2,9 @@ services:
   - type: web
     name: oliverflix-scraper-api
     env: node
-    buildCommand: npm install
+    buildCommand: |
+      npm install
+      npx puppeteer browsers install chrome
     startCommand: node server.js
     envVars:
       - key: PUPPETEER_CACHE_DIR
@@ -11,5 +13,6 @@ services:
         value: production
       - key: TARGET_BASE_URL
         value: https://net22.cc
-      - key: PUPPETEER_EXECUTABLE_PATH
-        value: /opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome
+      # Removed PUPPETEER_EXECUTABLE_PATH (not needed)
+      - key: PUPPETEER_SKIP_DOWNLOAD
+        value: false

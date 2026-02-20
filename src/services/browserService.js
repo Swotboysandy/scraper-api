@@ -1,8 +1,9 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const logger = require('../utils/logger');
 const { USER_AGENT } = require('../utils/constants');
 
-// Stealth plugin removed: using vanilla Puppeteer
+puppeteer.use(StealthPlugin());
 
 let globalBrowser = null;
 let activePages = 0;
@@ -12,30 +13,21 @@ const browserService = {
     initBrowser: async () => {
         if (!globalBrowser) {
             logger.info('Launching global Puppeteer browser...');
-
-            const launchOptions = {
-                headless: "new",
-                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome",
+            globalBrowser = await puppeteer.launch({
+                headless: true,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
-                    '--single-process',
-                    '--no-zygote',
                     '--disable-gpu',
-                    '--disable-web-security',
-                    '--disable-features=IsolateOrigins,site-per-process'
-                ],
-                ignoreHTTPSErrors: true
-            };
-
-            globalBrowser = await puppeteer.launch(launchOptions);
-            
+                    '--no-zygote',
+                    '--single-process'
+                ]
+            });
             globalBrowser.on('disconnected', () => {
                 logger.warn('Browser disconnected. Will reinit on next request.');
                 globalBrowser = null;
             });
-
             logger.info('Global browser launched successfully.');
         }
         return globalBrowser;
