@@ -4,5 +4,15 @@
         "api/**/*.js": {
             "includeFiles": "data/**"
         }
-    }
+    },
+    "rewrites": [
+        {
+            "source": "/",
+            "destination": "/api"
+        },
+        {
+            "source": "/home",
+            "destination": "/api/home"
+        }
+    ]
 }
