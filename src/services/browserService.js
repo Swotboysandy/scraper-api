@@ -14,41 +14,20 @@ const browserService = {
     initBrowser: async () => {
         if (!globalBrowser) {
             logger.info('Launching global Puppeteer browser...');
-            
-            // Render specific configurations
-            const args = [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--single-process',
-                '--no-zygote',
-                '--disable-web-security',
-                '--disable-features=IsolateOrigins,site-per-process'
-            ];
-
-            // If environment provides custom args
-            if (process.env.CHROME_ARGS) {
-                args.push(...process.env.CHROME_ARGS.split(','));
-            }
-
-            // Safely resolve executable path
-            let executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-            
-            if (!executablePath) {
-                try {
-                    executablePath = puppeteer.executablePath();
-                } catch (e) {
-                    logger.warn('puppeteer.executablePath() threw an error, falling back to static Render path.');
-                    executablePath = '/opt/render/project/src/.puppeteer_cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
-                }
-            }
 
             const launchOptions = {
                 headless: "new",
-                args: [...new Set(args)], // remove duplicates
-                ignoreHTTPSErrors: true,
-                executablePath: executablePath // Explicitly set it
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--single-process',
+                    '--no-zygote',
+                    '--disable-gpu',
+                    '--disable-web-security',
+                    '--disable-features=IsolateOrigins,site-per-process'
+                ],
+                ignoreHTTPSErrors: true
             };
 
             globalBrowser = await puppeteer.launch(launchOptions);
