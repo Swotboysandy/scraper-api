@@ -31,7 +31,9 @@ module.exports = async (req, res) => {
             httpStatus: status,
             pageTitle: title,
             htmlLength: html.length,
-            htmlSnippet: html.substring(0, 3000),
+            htmlStart: html.substring(0, 2000),
+            htmlMiddle: html.substring(Math.floor(html.length / 3), Math.floor(html.length / 3) + 3000),
+            htmlEnd: html.substring(html.length - 5000),
             isCloudflare: title.toLowerCase().includes('verification') || 
                           title.toLowerCase().includes('just a moment') || 
                           title.toLowerCase().includes('cloudflare'),
