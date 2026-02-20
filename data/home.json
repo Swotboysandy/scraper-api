@@ -1,0 +1,12 @@
+[
+  {
+    "title": "Trending",
+    "movies": [
+      {
+        "id": "123",
+        "title": "Example Movie",
+        "imageUrl": "https://imgcdn.example.com/v/123.jpg"
+      }
+    ]
+  }
+]

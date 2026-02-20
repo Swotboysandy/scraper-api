@@ -2,19 +2,12 @@ const express = require('express');
 const cors = require('cors');
 
 const homeRoutes = require('./routes/homeRoutes');
-const detailsRoutes = require('./routes/detailsRoutes');
-const streamRoutes = require('./routes/streamRoutes');
-const logger = require('./utils/logger');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Routes
-app.use('/home', homeRoutes);
-app.use('/details', detailsRoutes);
-app.use('/stream', streamRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -35,5 +28,7 @@ app.use((err, req, res, next) => {
         details: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
 });
+
+app.use('/', homeRoutes);
 
 module.exports = app;
