@@ -1,152 +1,217 @@
-const browserService = require('./browserService');
+const axios = require('axios');
+const cheerio = require('cheerio');
+const cookieService = require('./cookieService');
 const logger = require('../utils/logger');
-const { TIMEOUTS } = require('../utils/constants');
+const { USER_AGENT } = require('../utils/constants');
+
+const BASE_URL = 'https://net22.cc';
+const STREAM_PREFIX = 'https://net51.cc';
+const PLAYLIST_HOST = 'https://net52.cc';
+
+/**
+ * Build common headers for all requests
+ */
+async function getHeaders(acceptJson = false) {
+    const cookies = await cookieService.getCookies();
+    return {
+        'User-Agent': USER_AGENT,
+        'Accept': acceptJson
+            ? 'application/json, text/plain, */*'
+            : 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Cookie': cookies,
+        'Referer': BASE_URL,
+        ...(acceptJson ? { 'X-Requested-With': 'XMLHttpRequest' } : {}),
+    };
+}
+
+/**
+ * Normalize image URLs (handle protocol-relative, relative, etc.)
+ */
+function normalizeImageUrl(url) {
+    if (!url) return '';
+    if (url.startsWith('//')) return 'https:' + url;
+    if (url.startsWith('/')) return BASE_URL + url;
+    return url;
+}
 
 const scraperService = {
     /**
-     * Helper to safely load a page and ensure CF challenge is passed.
-     */
-    loadPageSafely: async (url) => {
-        let page = null;
-        try {
-            page = await browserService.getNewPage();
-            logger.info(`Navigating to ${url}...`);
-
-            // Go to the target URL
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: TIMEOUTS.NAVIGATION });
-
-            // Check if Cloudflare challenge is present
-            const isCloudflare = await page.evaluate(() => {
-                return !!document.querySelector('#challenge-running') || 
-                       document.title.includes('Just a moment') ||
-                       document.title.includes('Cloudflare');
-            });
-
-            if (isCloudflare) {
-                logger.warn('Cloudflare challenge detected. Waiting for it to resolve...');
-                // Wait for the main app container or specific elements to appear
-                // This means the challenge successfully passed
-                try {
-                    await page.waitForFunction(() => {
-                        return !document.title.includes('Just a moment') && 
-                               (document.querySelector('.showcase') || document.querySelector('.some-main-app-class') || document.body.innerHTML.length > 5000); // 5000 chars is a rough heuristic for content
-                    }, { timeout: TIMEOUTS.CLOUDFLARE });
-                    logger.info('Cloudflare challenge bypassed.');
-                } catch (e) {
-                    throw new Error('Timeout waiting for Cloudflare challenge to resolve. Is the IP blocked?');
-                }
-            }
-
-            // Small delay to ensure any dynamic React chunks load
-            await new Promise(r => setTimeout(r, 1000));
-            return page;
-
-        } catch (error) {
-            if (page) await page.close();
-            throw error;
-        }
-    },
-
-    /**
-     * Scrape Home Page
+     * Scrape Home Page — Cheerio-based HTML parsing
      */
     scrapeHome: async () => {
-        const baseUrl = process.env.TARGET_BASE_URL || 'https://net22.cc';
-        const page = await scraperService.loadPageSafely(`${baseUrl}/home`);
-        
         try {
-            logger.info('Parsing home page data...');
-            // Need to look at how net22.cc/home actually loads data.
-            // If it renders HTML lists, we extract those. 
-            // Often these sites might load a React state into a script tag with `__NEXT_DATA__` or similar.
-            
-            // Example generic extraction logic assuming standard DOM elements:
-            const data = await page.evaluate(() => {
-                const sections = [];
-                // Example pseudo-selector logic: 
-                // document.querySelectorAll('.category-section').forEach(...)
-                
-                // IMPORTANT: Since we don't have the exact DOM structure available right now,
-                // we'll implement a fallback/generic JSON pattern search.
-                // Often these sites embed the initial state in a script tag:
-                const stateScript = Array.from(document.querySelectorAll('script')).find(s => s.textContent.includes('window.__INITIAL_STATE__') || s.textContent.includes('{'));
-                if (stateScript && stateScript.textContent.includes('movies')) {
-                    try {
-                        // Very rough extraction, usually requires precise regex based on site
-                        const match = stateScript.textContent.match(/window\.__INITIAL_STATE__\s*=\s*({.*});/);
-                        if (match && match[1]) {
-                            return JSON.parse(match[1]);
-                        }
-                    } catch(e) {}
-                }
+            logger.info(`Scraping home page from ${BASE_URL}...`);
+            const headers = await getHeaders(false);
+            const { data: html } = await axios.get(BASE_URL, { headers, timeout: 15000 });
 
-                // Manual DOM extraction fallback
-                const lists = document.querySelectorAll('.slider-row, .movie-list, .section');
-                lists.forEach(list => {
-                    const titleEl = list.querySelector('h2, h3, .title');
-                    const items = list.querySelectorAll('.movie-item, .card, a[href^="/movie/"]');
-                    if (titleEl && items.length > 0) {
-                        const movies = [];
-                        items.forEach(item => {
-                            const link = item.getAttribute('href') || item.querySelector('a')?.getAttribute('href');
-                            const id = link ? link.split('/').pop() : 'unknown';
-                            const img = item.querySelector('img')?.getAttribute('src');
-                            const tEl = item.querySelector('.title, img')?.getAttribute('alt');
-                            if (id !== 'unknown') {
-                                movies.push({
-                                    id,
-                                    title: tEl || id,
-                                    imageUrl: img
-                                });
-                            }
-                        });
-                        sections.push({
-                            title: titleEl.innerText.trim(),
-                            movies
+            const $ = cheerio.load(html);
+            const sections = [];
+
+            // Check if we got past CloudFlare
+            const title = $('title').text().toLowerCase();
+            if (title.includes('verification') || title.includes('just a moment') || title.includes('cloudflare')) {
+                throw new Error('CloudFlare challenge detected. Set CF_COOKIES in your .env file with valid browser cookies.');
+            }
+
+            // Parse the actual content
+            $('.lolomoRow').each((_, rowElement) => {
+                const $row = $(rowElement);
+                const categoryTitle = $row.find('.row-header-title').text().trim();
+                const movies = [];
+
+                $row.find('.slider-item').each((_, itemElement) => {
+                    const $item = $(itemElement);
+                    const dataPost = $item.attr('data-post');
+                    const $link = $item.find('a.slider-refocus');
+                    const linkTitle = $link.attr('aria-label') || '';
+                    const $img = $item.find('.boxart-image');
+                    const imageUrl = normalizeImageUrl($img.attr('data-src') || $img.attr('src'));
+
+                    if (dataPost && linkTitle && imageUrl) {
+                        movies.push({
+                            id: dataPost,
+                            title: linkTitle,
+                            imageUrl: imageUrl,
                         });
                     }
                 });
 
-                return sections;
+                if (categoryTitle && movies.length > 0) {
+                    sections.push({ title: categoryTitle, movies });
+                }
             });
 
-            await page.close();
-            return data;
+            logger.info(`Scraped ${sections.length} sections with ${sections.reduce((a, s) => a + s.movies.length, 0)} items.`);
+            return sections;
         } catch (error) {
-            if (page && !page.isClosed()) await page.close();
-            logger.error('Error during scrapeHome:', error);
+            logger.error('Error scraping home:', error.message);
             throw error;
         }
     },
 
     /**
-     * Scrape Details Page
+     * Search — calls search.php JSON API
      */
-    scrapeDetails: async (id) => {
-        // Implementation for details scraping
-        const baseUrl = process.env.TARGET_BASE_URL || 'https://net22.cc';
-        const page = await scraperService.loadPageSafely(`${baseUrl}/details/${id}`);
-        
+    scrapeSearch: async (query) => {
         try {
-            logger.info(`Parsing details for ID: ${id}`);
-            const data = await page.evaluate(() => {
-                // Return dummy structure for now as placeholder for actual DOM scraping logic
-                return {
-                    id: window.location.pathname.split('/').pop(),
-                    title: document.title || 'Unknown Title',
-                    desc: document.querySelector('.description, p')?.innerText || '',
-                    // ... fetch other details depending on target layout
-                };
-            });
+            const timestamp = Date.now().toString();
+            const searchUrl = `${BASE_URL}/search.php?s=${encodeURIComponent(query)}&t=${timestamp}`;
 
-            await page.close();
+            logger.info(`Searching: ${searchUrl}`);
+            const headers = await getHeaders(true);
+            const { data } = await axios.get(searchUrl, { headers, timeout: 15000 });
+
             return data;
         } catch (error) {
-            if (page && !page.isClosed()) await page.close();
-            logger.error(`Error during scrapeDetails (${id}):`, error);
+            logger.error('Error searching:', error.message);
             throw error;
         }
-    }
+    },
+
+    /**
+     * Get Details — calls post.php JSON API
+     */
+    scrapeDetails: async (id) => {
+        try {
+            const timestamp = Date.now().toString();
+            const postUrl = `${BASE_URL}/post.php?id=${id}&t=${timestamp}`;
+
+            logger.info(`Fetching details: ${postUrl}`);
+            const headers = await getHeaders(true);
+            const { data } = await axios.get(postUrl, { headers, timeout: 15000 });
+
+            return data;
+        } catch (error) {
+            logger.error(`Error fetching details for ${id}:`, error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * Get Stream — 2-step: play.php → playlist.php
+     */
+    scrapeStream: async (id) => {
+        try {
+            // Step 1: Get play hash
+            logger.info(`Getting play hash for ID: ${id}...`);
+            const headers = await getHeaders(true);
+
+            const playResponse = await axios.post(`${BASE_URL}/play.php`, `id=${id}`, {
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                timeout: 15000,
+            });
+
+            const hash = playResponse.data?.h;
+            if (!hash) {
+                throw new Error('Hash not found in play.php response');
+            }
+            logger.info(`Got play hash: ${hash}`);
+
+            // Step 2: Get playlist
+            const timestamp = Date.now().toString();
+            const cookies = await cookieService.getCookies();
+            const playlistUrl = `${PLAYLIST_HOST}/playlist.php?id=${id}&tm=${timestamp}&h=${encodeURIComponent(hash)}`;
+
+            logger.info(`Fetching playlist: ${playlistUrl}`);
+            const playlistResponse = await axios.get(playlistUrl, {
+                headers: {
+                    'User-Agent': USER_AGENT,
+                    'Accept': 'application/json, text/plain, */*',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Cookie': cookies,
+                    'Referer': `${STREAM_PREFIX}/`,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                timeout: 15000,
+            });
+
+            let streamData = playlistResponse.data;
+            streamData = addPrefixToSources(streamData);
+
+            return {
+                playlistUrl,
+                streamData,
+                requestParams: { id, timestamp, h: hash },
+            };
+        } catch (error) {
+            logger.error(`Error fetching stream for ${id}:`, error.message);
+            throw error;
+        }
+    },
 };
+
+/**
+ * Recursively add STREAM_PREFIX to relative file URLs in sources
+ */
+function addPrefixToSources(data) {
+    if (!data || typeof data !== 'object') return data;
+
+    if (Array.isArray(data)) {
+        return data.map(item => addPrefixToSources(item));
+    }
+
+    const result = { ...data };
+
+    if (Array.isArray(result.sources)) {
+        result.sources = result.sources.map(source => {
+            if (source.file && typeof source.file === 'string' && source.file.startsWith('/')) {
+                return { ...source, file: STREAM_PREFIX + source.file };
+            }
+            return source;
+        });
+    }
+
+    for (const key in result) {
+        if (result[key] && typeof result[key] === 'object') {
+            result[key] = addPrefixToSources(result[key]);
+        }
+    }
+
+    return result;
+}
 
 module.exports = scraperService;

@@ -5,6 +5,7 @@ const logger = require('./utils/logger');
 const homeRoutes = require('./routes/homeRoutes');
 const detailsRoutes = require('./routes/detailsRoutes');
 const streamRoutes = require('./routes/streamRoutes');
+const searchRoutes = require('./routes/searchRoutes');
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.get('/health', (req, res) => {
 app.use('/', homeRoutes);
 app.use('/details', detailsRoutes);
 app.use('/stream', streamRoutes);
+app.use('/search', searchRoutes);
 
 // Fallback 404 (must be after all routes)
 app.use((req, res) => {
