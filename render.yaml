@@ -6,7 +6,7 @@ services:
     startCommand: node server.js
     envVars:
       - key: PUPPETEER_CACHE_DIR
-        value: /opt/render/project/src/.puppeteer_cache
+        value: /opt/render/.cache/puppeteer
       - key: NODE_ENV
         value: production
       - key: TARGET_BASE_URL
