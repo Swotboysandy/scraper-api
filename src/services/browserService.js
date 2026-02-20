@@ -1,4 +1,10 @@
-const puppeteer = require('puppeteer');
+let puppeteer;
+try {
+    puppeteer = require('puppeteer');
+} catch (e) {
+    // Puppeteer not available (e.g. on Vercel serverless)
+    puppeteer = null;
+}
 const logger = require('../utils/logger');
 
 let browser = null;
@@ -8,6 +14,9 @@ const browserService = {
      * Get or launch the shared browser instance.
      */
     getBrowser: async () => {
+        if (!puppeteer) {
+            throw new Error('Puppeteer is not available in this environment');
+        }
         if (browser && browser.connected) {
             return browser;
         }

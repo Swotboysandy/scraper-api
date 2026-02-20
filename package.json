@@ -2,7 +2,6 @@
     "name": "scraper-api",
     "version": "1.0.0",
     "description": "A minimal Express API that serves home content from a local JSON file.",
-    "main": "server.js",
     "scripts": {
         "start": "node server.js"
     },
