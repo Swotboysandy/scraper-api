@@ -1,18 +1,28 @@
 {
     "version": 2,
-    "functions": {
-        "api/**/*.js": {
-            "includeFiles": "data/**"
-        }
-    },
-    "rewrites": [
+    "builds": [
         {
-            "source": "/",
-            "destination": "/api"
+            "src": "api/**/*.js",
+            "use": "@vercel/node",
+            "config": {
+                "includeFiles": [
+                    "data/**"
+                ]
+            }
+        }
+    ],
+    "routes": [
+        {
+            "src": "^/$",
+            "dest": "/api/index.js"
         },
         {
-            "source": "/home",
-            "destination": "/api/home"
+            "src": "^/home$",
+            "dest": "/api/home.js"
+        },
+        {
+            "src": "^/api/(.*)$",
+            "dest": "/api/$1.js"
         }
     ]
 }
