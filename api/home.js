@@ -146,10 +146,10 @@ module.exports = async (req, res) => {
                     movies.push({
                         id: item.id,
                         title: item.t || item.title || 'Untitled',
-                        // Construct placeholder image URL — the app will show at least titles
+                        // Use the real image CDN: imgcdn.kim
                         imageUrl: item.ua 
                             ? normalizeImageUrl(item.ua) 
-                            : `https://assets.nfixext.com/ffe/siteui/vlv3/poster/v/${item.id}.jpg`,
+                            : `https://imgcdn.kim/poster/341/${item.id}.jpg`,
                     });
                 }
             }
